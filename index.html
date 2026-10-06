@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<meta name="referrer" content="no-referrer">
+<title>בקשת שינוי בהזמנה</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Rubik:wght@400;500;700&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+:root {
+  --bg: #f2f0f1; --surface: #ffffff; --sunk: #e9e5e7; --fg: #1e191c; --muted: #685e64; --line: #d8d0d4;
+  --accent: #8f1d36; --accent-soft: #f5e3e7; --on-accent: #ffffff; --seat-off: #cfc6cb;
+  --ok: #1f6b45; --ok-soft: #e1f1e8; --warn: #8a5a00; --warn-soft: #fbefd6; --bad: #9b2b20; --bad-soft: #f9e2df;
+  --display: "Frank Ruhl Libre", "David", Georgia, serif; --body: "Rubik", "Segoe UI", Arial, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Consolas, monospace; color-scheme: light;
+}
+@media (prefers-color-scheme: dark) { :root {
+  --bg: #151113; --surface: #201a1d; --sunk: #2a2326; --fg: #f1eaee; --muted: #b2a5ac; --line: #3a3136;
+  --accent: #e3708a; --accent-soft: #3c2129; --on-accent: #1d0c11; --seat-off: #4a4045;
+  --ok: #7fd1a5; --ok-soft: #1c3227; --warn: #f0c46b; --warn-soft: #3a2f16; --bad: #f19a8f; --bad-soft: #3d201c; color-scheme: dark } }
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 16px; line-height: 1.55;
+  padding: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px); }
+.card { max-width: 480px; margin: 0 auto; min-height: 100dvh; background: var(--surface); display: flex; flex-direction: column; }
+@media (min-width: 560px) { body { padding-block: 24px; } .card { min-height: 0; border-radius: 20px; border: 1px solid var(--line); overflow: hidden; } }
+.test { background: var(--warn-soft); color: var(--warn); font-size: 13px; text-align: center; padding: 6px 12px; }
+.appbar { padding: 14px 20px 12px; border-bottom: 1px solid var(--line); display: grid; gap: 8px; }
+.org { font-size: 13px; color: var(--muted); }
+.progress { display: flex; gap: 4px; }
+.progress span { flex: 1; height: 4px; border-radius: 4px; background: var(--sunk); }
+.progress span.on { background: var(--accent); }
+main { padding: 20px; display: grid; gap: 16px; align-content: start; flex: 1; }
+h1 { font-family: var(--display); font-size: 26px; line-height: 1.2; margin: 0; text-wrap: balance; }
+p { margin: 0; }
+.hint { font-size: 14px; color: var(--muted); }
+.num { font-family: var(--mono); direction: ltr; unicode-bidi: isolate; }
+.ticket { border: 1.5px solid var(--line); border-radius: 14px; padding: 14px 16px; display: grid; gap: 4px; }
+.ticket .t { font-weight: 700; font-size: 17px; }
+.ticket .meta { font-size: 14px; color: var(--muted); }
+.banner { background: var(--warn-soft); color: var(--warn); padding: 10px 12px; border-radius: 10px; font-size: 15px; }
+.error { background: var(--bad-soft); color: var(--bad); padding: 12px 14px; border-radius: 10px; }
+.field { display: grid; gap: 4px; }
+.field label { font-size: 14px; color: var(--muted); }
+.field input, .field textarea { font: inherit; padding: 11px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--fg); width: 100%; }
+.field input[dir="ltr"] { text-align: right; }
+.field textarea { min-height: 70px; resize: vertical; }
+.hall { display: grid; gap: 8px; justify-items: center; padding: 16px 8px 10px; background: var(--sunk); border-radius: 14px; }
+.stage-label { font-size: 12px; color: var(--muted); border-bottom: 2px solid var(--seat-off); padding-bottom: 2px; width: 70%; text-align: center; }
+.rowname { font-size: 13px; color: var(--muted); }
+.row { display: flex; gap: 6px; direction: ltr; flex-wrap: wrap; justify-content: center; }
+.seat { all: unset; box-sizing: border-box; width: 34px; height: 38px; border-radius: 10px 10px 4px 4px; background: var(--seat-off); display: grid; place-items: center; font-family: var(--mono); font-size: 12px; color: transparent; }
+.seat.mine { cursor: pointer; background: var(--surface); border: 2px solid var(--accent); color: var(--accent); }
+.seat.mine[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
+.seat.locked { cursor: default; }
+.seat:focus-visible, .choice:focus-visible, .btn:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.legend { display: flex; gap: 14px; font-size: 12px; color: var(--muted); flex-wrap: wrap; justify-content: center; }
+.legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; margin-left: 4px; }
+.legend .l1 { background: var(--accent); } .legend .l2 { background: var(--surface); border: 2px solid var(--accent); } .legend .l3 { background: var(--seat-off); }
+.choices { display: grid; gap: 8px; }
+.choice { all: unset; box-sizing: border-box; cursor: pointer; display: grid; gap: 2px; padding: 12px 14px; border: 1.5px solid var(--line); border-radius: 12px; background: var(--surface); }
+.choice[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
+.choice .t { font-weight: 500; }
+.choice .s { font-size: 13px; color: var(--muted); }
+.summary { display: grid; gap: 8px; margin: 0; padding: 12px 14px; background: var(--sunk); border-radius: 12px; }
+.summary div { display: flex; justify-content: space-between; gap: 12px; font-size: 15px; }
+.summary dt { color: var(--muted); }
+.summary dd { margin: 0; font-weight: 500; text-align: left; }
+nav { display: flex; gap: 10px; padding: 14px 20px 20px; border-top: 1px solid var(--line); position: sticky; bottom: 0; background: var(--surface); }
+.btn { font: inherit; font-weight: 500; border-radius: 12px; padding: 13px 18px; border: 1.5px solid var(--line); background: var(--surface); color: var(--fg); cursor: pointer; }
+.btn.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); flex: 1; }
+.btn[disabled] { opacity: .45; cursor: not-allowed; }
+.done { text-align: center; justify-items: center; padding-top: 48px; }
+.stub { border: 1.5px dashed var(--accent); border-radius: 12px; padding: 8px 18px; color: var(--accent); font-family: var(--mono); }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="test" id="test" hidden>קישור לבדיקה. הפרטים בו בדויים.</div>
+  <div class="appbar"><span class="org" id="org">בקשת שינוי בהזמנה</span><div class="progress" id="progress"></div></div>
+  <main id="main"></main>
+  <nav id="nav"></nav>
+</div>
+<script>
+(function () {
+  // The address of the Google Apps Script web app that adds each answer to the center's sheet.
+  const ENDPOINT = '';
+  const REASONS = [
+    { id: 'cant', t: 'לא אוכל/ה להגיע', s: 'ביטול מראש' },
+    { id: 'sick', t: 'מחלה או אירוע משפחתי', s: '' },
+    { id: 'other', t: 'סיבה אחרת', s: 'אפשר לפרט בסוף' }];
+  const WANTS = {
+    sub: [{ id: 'credit', t: 'זיכוי ליתרת הכרטיסים', s: 'אשתמש בהם בהמשך העונה' },
+          { id: 'swap', t: 'כרטיס לקונצרט אחר', s: 'אבחר קונצרט בשלב הבא' },
+          { id: 'refund', t: 'החזר כספי', s: 'לפי מדיניות ההחזרים של המרכז' }],
+    buyer: [{ id: 'refund', t: 'החזר כספי', s: 'הכסף יוחזר לאמצעי התשלום' },
+            { id: 'swap', t: 'כרטיסים לקונצרט אחר', s: 'אבחר קונצרט בשלב הבא' },
+            { id: 'voucher', t: 'זיכוי לרכישה עתידית', s: 'שובר בשווי הכרטיסים' }]
+  };
+  const main = document.getElementById('main'), nav = document.getElementById('nav');
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const seatText = (list) => list.length === 1 ? 'כיסא ' + list[0] : 'כיסאות ' + list.join(', ');
+
+  function decode(token) {
+    const payload = (token || '').split('.')[0];
+    if (!payload || token.split('.').length !== 2) return null;
+    try {
+      const bin = atob(payload.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((payload.length + 3) % 4));
+      const order = JSON.parse(new TextDecoder().decode(Uint8Array.from(bin, (c) => c.charCodeAt(0))));
+      if (!order.o || !order.c || !Array.isArray(order.s) || !order.s.length) return null;
+      return order;
+    } catch (e) { return null; }
+  }
+
+  const token = location.hash.slice(1);
+  const order = decode(token);
+  if (!order) {
+    main.innerHTML = '<h1>הקישור לא תקין</h1><p class="error">לא הצלחנו לקרוא את פרטי ההזמנה מהקישור. נסו לפתוח אותו שוב מההודעה המקורית, או פנו למשרד.</p>';
+    return;
+  }
+  if (order.test) document.getElementById('test').hidden = false;
+  if (order.org) document.getElementById('org').textContent = order.org;
+  const wants = WANTS[order.k === 'sub' ? 'sub' : 'buyer'];
+  const alts = (order.a || []).map((a, i) => ({ id: 'a' + i, t: a[0], s: a[1] || '' })).concat([{ id: 'office', t: 'שהמשרד יציע לי מועד', s: 'נחזור אליך עם אפשרויות' }]);
+  const steps = order.x ? ['booking', 'seats', 'want', 'review'] : ['booking', 'seats', 'reason', 'want', 'review'];
+  let step = 0, sending = false;
+  const answer = { phone: order.p || '', email: order.e || '', seats: order.x ? order.s.slice() : (order.s.length === 1 ? order.s.slice() : []),
+                   reason: null, want: null, to: null, note: '' };
+
+  function canNext() {
+    switch (steps[step]) {
+      case 'booking': return answer.phone.trim().length >= 7;
+      case 'seats': return answer.seats.length > 0;
+      case 'reason': return !!answer.reason;
+      case 'want': return !!answer.want && (answer.want !== 'swap' || !!answer.to);
+      default: return !sending;
+    }
+  }
+  const choices = (items, value, attr) => '<div class="choices">' + items.map((i) =>
+    `<button type="button" class="choice" data-${attr}="${esc(i.id)}" aria-pressed="${value === i.id}"><span class="t">${esc(i.t)}</span>${i.s ? `<span class="s">${esc(i.s)}</span>` : ''}</button>`).join('') + '</div>';
+
+  function hall() {
+    const nums = order.s.map(Number);
+    const from = Number(order.f) || Math.max(1, Math.min(...nums) - 3), to = Number(order.l) || Math.max(...nums) + 3;
+    let seats = '';
+    for (let n = from; n <= to; n++) {
+      const id = String(n);
+      seats += order.s.includes(id)
+        ? `<button type="button" class="seat mine${order.x ? ' locked' : ''}" data-seat="${id}" aria-pressed="${answer.seats.includes(id)}" aria-label="שורה ${esc(order.r)} כיסא ${id}">${id}</button>`
+        : '<span class="seat" aria-hidden="true"></span>';
+    }
+    return `<div class="hall"><span class="stage-label">במה</span><span class="rowname">שורה ${esc(order.r)}</span><div class="row">${seats}</div>
+      <div class="legend"><span><i class="l1"></i>לביטול</span><span><i class="l2"></i>נשאר</span><span><i class="l3"></i>מושבים של אחרים</span></div></div>`;
+  }
+
+  function body() {
+    switch (steps[step]) {
+      case 'booking':
+        return `<h1>שלום ${esc(String(order.n || '').split(' ')[0])}</h1>
+          ${order.x ? '<p class="banner">הקונצרט הזה בוטל. מצטערים! בחרו כאן מה תעדיפו במקום.</p>' : '<p class="hint">זו ההזמנה שלך. נעבור עליה יחד, זה לוקח פחות מדקה.</p>'}
+          <div class="ticket"><span class="t">${esc(order.c)}</span>
+            <span class="meta"><span class="num">${esc(order.d)}</span>${order.t ? ' · <span class="num">' + esc(order.t) + '</span>' : ''} · שורה ${esc(order.r)}, ${seatText(order.s)}</span>
+            <span class="meta">הזמנה <span class="num">${esc(order.o)}</span> · ${esc(order.n)}</span></div>
+          <div class="field"><label for="f-phone">טלפון לחזרה</label><input id="f-phone" dir="ltr" inputmode="tel" autocomplete="tel" value="${esc(answer.phone)}"></div>
+          <div class="field"><label for="f-email">מייל</label><input id="f-email" dir="ltr" inputmode="email" autocomplete="email" value="${esc(answer.email)}"></div>`;
+      case 'seats':
+        if (order.x) return `<h1>המושבים שלך</h1><p class="hint">כל המושבים בהזמנה כלולים, כי הקונצרט בוטל.</p>${hall()}<p>שורה ${esc(order.r)}, ${seatText(answer.seats)}</p>`;
+        const left = order.s.filter((s) => !answer.seats.includes(s));
+        return `<h1>אילו מושבים לבטל?</h1><p class="hint">לחצו על כל כיסא שלא יגיעו אליו. השאר נשארים בהזמנה.</p>${hall()}
+          <p>${answer.seats.length ? 'לביטול: שורה ' + esc(order.r) + ', ' + seatText(answer.seats) : 'עוד לא נבחר כיסא'}${answer.seats.length && left.length ? ' · נשאר: ' + seatText(left) : ''}</p>`;
+      case 'reason':
+        return '<h1>מה קרה?</h1>' + choices(REASONS, answer.reason, 'reason');
+      case 'want': {
+        let html = `<h1>מה תעדיפו במקום ${answer.seats.length === 1 ? 'הכיסא' : answer.seats.length + ' הכיסאות'}?</h1>` + choices(wants, answer.want, 'want');
+        if (answer.want === 'swap') html += '<p class="hint">לאיזה קונצרט?</p>' + choices(alts, answer.to, 'to');
+        return html;
+      }
+      case 'review': {
+        const w = wants.find((x) => x.id === answer.want), to = alts.find((x) => x.id === answer.to);
+        return `<h1>רגע לפני ששולחים</h1>
+          <dl class="summary">
+            <div><dt>קונצרט</dt><dd>${esc(order.c)}</dd></div>
+            <div><dt>מושבים</dt><dd>שורה ${esc(order.r)}, ${seatText(answer.seats)}</dd></div>
+            <div><dt>סיבה</dt><dd>${order.x ? 'הקונצרט בוטל' : esc(REASONS.find((r) => r.id === answer.reason).t)}</dd></div>
+            <div><dt>בקשה</dt><dd>${esc(w.t)}${to ? ': ' + esc(to.t) : ''}</dd></div>
+          </dl>
+          <div class="field"><label for="f-note">הערה למשרד (לא חובה)</label><textarea id="f-note" maxlength="500">${esc(answer.note)}</textarea></div>
+          <p id="send-error" class="error" hidden></p>`;
+      }
+    }
+  }
+
+  function render() {
+    document.getElementById('progress').innerHTML = steps.map((_, i) => `<span class="${i <= step ? 'on' : ''}"></span>`).join('');
+    main.innerHTML = body();
+    const last = step === steps.length - 1;
+    nav.innerHTML = (step ? '<button type="button" class="btn" id="back">חזרה</button>' : '') +
+      `<button type="button" class="btn primary" id="next" ${canNext() ? '' : 'disabled'}>${last ? (sending ? 'שולחים…' : 'שליחת הבקשה') : 'המשך'}</button>`;
+    wire();
+    window.scrollTo(0, 0);
+  }
+
+  function wire() {
+    const next = document.getElementById('next');
+    ['phone', 'email', 'note'].forEach((k) => {
+      const input = document.getElementById('f-' + k);
+      if (input) input.addEventListener('input', () => { answer[k] = input.value; next.disabled = !canNext(); });
+    });
+    if (!order.x) main.querySelectorAll('[data-seat]').forEach((b) => b.onclick = () => {
+      const k = b.dataset.seat;
+      answer.seats = answer.seats.includes(k) ? answer.seats.filter((s) => s !== k) : answer.seats.concat(k).sort((a, z) => a - z);
+      render();
+    });
+    main.querySelectorAll('[data-reason]').forEach((b) => b.onclick = () => { answer.reason = b.dataset.reason; render(); });
+    main.querySelectorAll('[data-want]').forEach((b) => b.onclick = () => { answer.want = b.dataset.want; if (answer.want !== 'swap') answer.to = null; render(); });
+    main.querySelectorAll('[data-to]').forEach((b) => b.onclick = () => { answer.to = b.dataset.to; render(); });
+    const back = document.getElementById('back');
+    if (back) back.onclick = () => { if (!sending) { step -= 1; render(); } };
+    next.onclick = () => { if (!canNext()) return; if (step === steps.length - 1) send(); else { step += 1; render(); } };
+  }
+
+  function fail(text) {
+    sending = false;
+    render();
+    const box = document.getElementById('send-error');
+    box.textContent = text;
+    box.hidden = false;
+  }
+
+  async function send() {
+    if (!ENDPOINT) { fail('הקישור עוד לא מחובר לגיליון של המרכז. נסו שוב מאוחר יותר.'); return; }
+    sending = true;
+    render();
+    const alt = alts.find((x) => x.id === answer.to);
+    const data = { token, phone: answer.phone.trim(), email: answer.email.trim(), seats: answer.seats,
+                   reason: order.x ? 'cancelled' : answer.reason, want: answer.want, to: alt ? alt.t : '', note: answer.note.trim() };
+    try {
+      // text/plain keeps this a simple request, which Apps Script web apps accept without a CORS preflight.
+      const response = await fetch(ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(data) });
+      const result = await response.json();
+      if (!result.ok) { fail(result.error || 'הבקשה לא נשמרה. נסו שוב.'); return; }
+      sending = false;
+      document.getElementById('progress').innerHTML = steps.map(() => '<span class="on"></span>').join('');
+      main.innerHTML = `<div class="done" style="display:grid;gap:12px"><h1>הבקשה התקבלה</h1><span class="stub">${esc(result.id)}</span>
+        <p class="hint">צוות המרכז יחזור אליך עם אישור. אין צורך להתקשר.</p></div>`;
+      nav.innerHTML = '';
+    } catch (e) {
+      fail('אין חיבור כרגע, הבקשה לא נשלחה. בדקו את החיבור ונסו שוב.');
+    }
+  }
+
+  render();
+})();
+</script>
+</body>
+</html>
