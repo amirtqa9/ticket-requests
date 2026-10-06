@@ -85,7 +85,7 @@ nav { display: flex; gap: 10px; padding: 14px 20px 20px; border-top: 1px solid v
   <nav id="nav"></nav>
 </div>
 <script>
-(function () {
+(async function () {
   // The address of the Google Apps Script web app that adds each answer to the center's sheet.
   const ENDPOINT = '';
   const REASONS = [
@@ -115,12 +115,27 @@ nav { display: flex; gap: 10px; padding: 14px 20px 20px; border-top: 1px solid v
     } catch (e) { return null; }
   }
 
-  const token = location.hash.slice(1);
-  const order = decode(token);
-  if (!order) {
-    main.innerHTML = '<h1>הקישור לא תקין</h1><p class="error">לא הצלחנו לקרוא את פרטי ההזמנה מהקישור. נסו לפתוח אותו שוב מההודעה המקורית, או פנו למשרד.</p>';
-    return;
+  // Two made-up test bookings, so a test link can be as short as #t1. Real links are #<order>.<signature>.
+  const TESTS = {"t1": "eyJ0ZXN0Ijp0cnVlLCJvcmciOiLXnteo15vXliDXlNee15XXlteZ16fXlCDigJMg15HXk9eZ16fXlCIsIm8iOiJULTEwMDEiLCJrIjoic3ViIiwibiI6IteT16DXlCDXnNeV15kiLCJwIjoiMDUwLTEyMy00NTY3IiwiZSI6ImRhbmFAZXhhbXBsZS5jb20iLCJjIjoi16LXqNeRINek16HXoNeq16gg4oCTINep15XXpNefINeV15PXkdeZ16HXmSIsImQiOiIxMi4xMS4yMDI2IiwidCI6IjIwOjAwIiwiciI6IjciLCJzIjpbIjEyIiwiMTMiXSwiZiI6OSwibCI6MTYsIngiOmZhbHNlLCJhIjpbWyLXptez15zXlSDXldek16HXoNeq16gg4oCTINeR16jXlNee16EiLCIxMS4zLjIwMjciXSxbIten15XXoNem16jXmCDXkNeR15nXkSDXnNeb15wg15TXntep16TXl9eUIiwiMjIuNC4yMDI3Il1dfQ.z3vgiOUERfhCJ18W6pp0yofiJh4-1jiZK5oBuoN-cx8", "t2": "eyJ0ZXN0Ijp0cnVlLCJvcmciOiLXnteo15vXliDXlNee15XXlteZ16fXlCDigJMg15HXk9eZ16fXlCIsIm8iOiJULTEwMDIiLCJrIjoiYnV5ZXIiLCJuIjoi15DXldeo15kg15HXnyDXk9eV15MiLCJwIjoiMDUyLTc2NS00MzIxIiwiZSI6InVyaUBleGFtcGxlLmNvbSIsImMiOiLXp9eV16DXpteo15gg15fXoNeV15vXlCDXnNeb15wg15TXntep16TXl9eUIiwiZCI6IjEwLjEyLjIwMjYiLCJ0IjoiMTc6MDAiLCJyIjoiMyIsInMiOlsiNCIsIjUiLCI2Il0sImYiOjEsImwiOjksIngiOnRydWUsImEiOltbItep15nXqNeZINeQ16jXpSDXmdep16jXkNecIOKAkyDXnten15TXnNeUIiwiMTguMi4yMDI3Il0sWyLXp9eV16DXpteo15gg15DXkdeZ15Eg15zXm9ecINeU157Xqdek15fXlCIsIjIyLjQuMjAyNyJdXX0.FXKXJ6dody6Z5MYCA44xZUDHROFSuCGDbObrBei0VaI"};
+  const hash = location.hash.slice(1);
+  const short = /^([A-Za-z0-9-]{1,40})\.([A-Za-z0-9_-]{12})$/.exec(hash);
+  const token = TESTS[hash] || (short ? '' : hash);
+  const badLink = () => { main.innerHTML = '<h1>הקישור לא תקין</h1><p class="error">לא הצלחנו לקרוא את פרטי ההזמנה מהקישור. נסו לפתוח אותו שוב מההודעה המקורית, או פנו למשרד.</p>'; nav.innerHTML = ''; };
+  let order = token ? decode(token) : null;
+  if (short) {
+    if (!ENDPOINT) { badLink(); return; }
+    main.innerHTML = '<p class="hint">טוענים את ההזמנה…</p>';
+    try {
+      const response = await fetch(ENDPOINT + '?id=' + encodeURIComponent(short[1]) + '&sig=' + encodeURIComponent(short[2]));
+      const result = await response.json();
+      if (!result.ok) { badLink(); return; }
+      order = result.order;
+    } catch (e) {
+      main.innerHTML = '<h1>אין חיבור</h1><p class="error">לא הצלחנו לטעון את ההזמנה. בדקו את החיבור ונסו לפתוח את הקישור שוב.</p>';
+      return;
+    }
   }
+  if (!order) { badLink(); return; }
   if (order.test) document.getElementById('test').hidden = false;
   if (order.org) document.getElementById('org').textContent = order.org;
   const wants = WANTS[order.k === 'sub' ? 'sub' : 'buyer'];
@@ -235,7 +250,7 @@ nav { display: flex; gap: 10px; padding: 14px 20px 20px; border-top: 1px solid v
     sending = true;
     render();
     const alt = alts.find((x) => x.id === answer.to);
-    const data = { token, phone: answer.phone.trim(), email: answer.email.trim(), seats: answer.seats,
+    const data = { ...(short ? { id: short[1], sig: short[2] } : { token }), phone: answer.phone.trim(), email: answer.email.trim(), seats: answer.seats,
                    reason: order.x ? 'cancelled' : answer.reason, want: answer.want, to: alt ? alt.t : '', note: answer.note.trim() };
     try {
       // text/plain keeps this a simple request, which Apps Script web apps accept without a CORS preflight.
