@@ -87,7 +87,7 @@ nav { display: flex; gap: 10px; padding: 14px 20px 20px; border-top: 1px solid v
 <script>
 (async function () {
   // The address of the Google Apps Script web app that adds each answer to the center's sheet.
-  const ENDPOINT = '';
+  const ENDPOINT = 'https://script.google.com/macros/s/AKfycbyG9OyzQAJjZNrgetWsNdbJJno2dKiRe4ZkNaLDxFGexR-rb-Cq0dUtTh-_OyZNytlD3A/exec';
   const REASONS = [
     { id: 'cant', t: 'לא אוכל/ה להגיע', s: 'ביטול מראש' },
     { id: 'sick', t: 'מחלה או אירוע משפחתי', s: '' },
@@ -102,7 +102,14 @@ nav { display: flex; gap: 10px; padding: 14px 20px 20px; border-top: 1px solid v
   };
   const main = document.getElementById('main'), nav = document.getElementById('nav');
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const seatText = (list) => list.length === 1 ? 'כיסא ' + list[0] : 'כיסאות ' + list.join(', ');
+  // BEGIN seats
+  // A seat is "row/seat". An older order (and the built-in tests) has one row in order.r and bare seat numbers in order.s.
+  const seatId = (seat, row) => { const t = String(seat); return t.indexOf('/') >= 0 || !row ? t : row + '/' + t; };
+  const bySeat = (a, b) => { const x = a.split('/'), y = b.split('/'); return (Number(x[0]) - Number(y[0])) || (Number(x[1]) - Number(y[1])) || a.localeCompare(b); };
+  const rowsOf = (seats) => { const rows = []; seats.forEach((s) => { const r = s.split('/')[0]; if (rows.indexOf(r) < 0) rows.push(r); }); return rows; };
+  const seatsByRow = (seats) => rowsOf(seats).map((r) => ({ row: r, seats: seats.filter((s) => s.split('/')[0] === r).map((s) => s.split('/')[1]) }));
+  const seatText = (list) => seatsByRow(list).map((g) => 'שורה ' + g.row + ', ' + (g.seats.length === 1 ? 'כיסא ' + g.seats[0] : 'כיסאות ' + g.seats.join(', '))).join(' · ');
+  // END seats
 
   function decode(token) {
     const payload = (token || '').split('.')[0];
@@ -111,6 +118,7 @@ nav { display: flex; gap: 10px; padding: 14px 20px 20px; border-top: 1px solid v
       const bin = atob(payload.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((payload.length + 3) % 4));
       const order = JSON.parse(new TextDecoder().decode(Uint8Array.from(bin, (c) => c.charCodeAt(0))));
       if (!order.o || !order.c || !Array.isArray(order.s) || !order.s.length) return null;
+      order.s = order.s.map((s) => seatId(s, order.r));
       return order;
     } catch (e) { return null; }
   }
@@ -130,6 +138,7 @@ nav { display: flex; gap: 10px; padding: 14px 20px 20px; border-top: 1px solid v
       const result = await response.json();
       if (!result.ok) { badLink(); return; }
       order = result.order;
+      if (order && Array.isArray(order.s)) order.s = order.s.map((s) => seatId(s, order.r));
     } catch (e) {
       main.innerHTML = '<h1>אין חיבור</h1><p class="error">לא הצלחנו לטעון את ההזמנה. בדקו את החיבור ונסו לפתוח את הקישור שוב.</p>';
       return;
@@ -158,16 +167,22 @@ nav { display: flex; gap: 10px; padding: 14px 20px 20px; border-top: 1px solid v
     `<button type="button" class="choice" data-${attr}="${esc(i.id)}" aria-pressed="${value === i.id}"><span class="t">${esc(i.t)}</span>${i.s ? `<span class="s">${esc(i.s)}</span>` : ''}</button>`).join('') + '</div>';
 
   function hall() {
-    const nums = order.s.map(Number);
-    const from = Number(order.f) || Math.max(1, Math.min(...nums) - 3), to = Number(order.l) || Math.max(...nums) + 3;
-    let seats = '';
-    for (let n = from; n <= to; n++) {
-      const id = String(n);
-      seats += order.s.includes(id)
-        ? `<button type="button" class="seat mine${order.x ? ' locked' : ''}" data-seat="${id}" aria-pressed="${answer.seats.includes(id)}" aria-label="שורה ${esc(order.r)} כיסא ${id}">${id}</button>`
-        : '<span class="seat" aria-hidden="true"></span>';
-    }
-    return `<div class="hall"><span class="stage-label">במה</span><span class="rowname">שורה ${esc(order.r)}</span><div class="row">${seats}</div>
+    const groups = seatsByRow(order.s);
+    const strips = groups.map((g) => {
+      const nums = g.seats.map(Number);
+      const single = groups.length === 1;
+      const from = single && Number(order.f) ? Number(order.f) : Math.max(1, Math.min(...nums) - 3);
+      const to = single && Number(order.l) ? Number(order.l) : Math.max(...nums) + 3;
+      let seats = '';
+      for (let n = from; n <= to; n++) {
+        const id = g.row + '/' + n;
+        seats += order.s.includes(id)
+          ? `<button type="button" class="seat mine${order.x ? ' locked' : ''}" data-seat="${esc(id)}" aria-pressed="${answer.seats.includes(id)}" aria-label="שורה ${esc(g.row)} כיסא ${n}">${n}</button>`
+          : '<span class="seat" aria-hidden="true"></span>';
+      }
+      return `<span class="rowname">שורה ${esc(g.row)}</span><div class="row">${seats}</div>`;
+    }).join('');
+    return `<div class="hall"><span class="stage-label">במה</span>${strips}
       <div class="legend"><span><i class="l1"></i>לביטול</span><span><i class="l2"></i>נשאר</span><span><i class="l3"></i>מושבים של אחרים</span></div></div>`;
   }
 
@@ -177,15 +192,15 @@ nav { display: flex; gap: 10px; padding: 14px 20px 20px; border-top: 1px solid v
         return `<h1>שלום ${esc(String(order.n || '').split(' ')[0])}</h1>
           ${order.x ? '<p class="banner">הקונצרט הזה בוטל. מצטערים! בחרו כאן מה תעדיפו במקום.</p>' : '<p class="hint">זו ההזמנה שלך. נעבור עליה יחד, זה לוקח פחות מדקה.</p>'}
           <div class="ticket"><span class="t">${esc(order.c)}</span>
-            <span class="meta"><span class="num">${esc(order.d)}</span>${order.t ? ' · <span class="num">' + esc(order.t) + '</span>' : ''} · שורה ${esc(order.r)}, ${seatText(order.s)}</span>
+            <span class="meta"><span class="num">${esc(order.d)}</span>${order.t ? ' · <span class="num">' + esc(order.t) + '</span>' : ''} · ${esc(seatText(order.s))}</span>
             <span class="meta">הזמנה <span class="num">${esc(order.o)}</span> · ${esc(order.n)}</span></div>
           <div class="field"><label for="f-phone">טלפון לחזרה</label><input id="f-phone" dir="ltr" inputmode="tel" autocomplete="tel" value="${esc(answer.phone)}"></div>
           <div class="field"><label for="f-email">מייל</label><input id="f-email" dir="ltr" inputmode="email" autocomplete="email" value="${esc(answer.email)}"></div>`;
       case 'seats':
-        if (order.x) return `<h1>המושבים שלך</h1><p class="hint">כל המושבים בהזמנה כלולים, כי הקונצרט בוטל.</p>${hall()}<p>שורה ${esc(order.r)}, ${seatText(answer.seats)}</p>`;
+        if (order.x) return `<h1>המושבים שלך</h1><p class="hint">כל המושבים בהזמנה כלולים, כי הקונצרט בוטל.</p>${hall()}<p>${esc(seatText(answer.seats))}</p>`;
         const left = order.s.filter((s) => !answer.seats.includes(s));
         return `<h1>אילו מושבים לבטל?</h1><p class="hint">לחצו על כל כיסא שלא יגיעו אליו. השאר נשארים בהזמנה.</p>${hall()}
-          <p>${answer.seats.length ? 'לביטול: שורה ' + esc(order.r) + ', ' + seatText(answer.seats) : 'עוד לא נבחר כיסא'}${answer.seats.length && left.length ? ' · נשאר: ' + seatText(left) : ''}</p>`;
+          <p>${answer.seats.length ? 'לביטול: ' + esc(seatText(answer.seats)) : 'עוד לא נבחר כיסא'}${answer.seats.length && left.length ? ' · נשאר: ' + esc(seatText(left)) : ''}</p>`;
       case 'reason':
         return '<h1>מה קרה?</h1>' + choices(REASONS, answer.reason, 'reason');
       case 'want': {
@@ -198,7 +213,7 @@ nav { display: flex; gap: 10px; padding: 14px 20px 20px; border-top: 1px solid v
         return `<h1>רגע לפני ששולחים</h1>
           <dl class="summary">
             <div><dt>קונצרט</dt><dd>${esc(order.c)}</dd></div>
-            <div><dt>מושבים</dt><dd>שורה ${esc(order.r)}, ${seatText(answer.seats)}</dd></div>
+            <div><dt>מושבים</dt><dd>${esc(seatText(answer.seats))}</dd></div>
             <div><dt>סיבה</dt><dd>${order.x ? 'הקונצרט בוטל' : esc(REASONS.find((r) => r.id === answer.reason).t)}</dd></div>
             <div><dt>בקשה</dt><dd>${esc(w.t)}${to ? ': ' + esc(to.t) : ''}</dd></div>
           </dl>
@@ -226,7 +241,7 @@ nav { display: flex; gap: 10px; padding: 14px 20px 20px; border-top: 1px solid v
     });
     if (!order.x) main.querySelectorAll('[data-seat]').forEach((b) => b.onclick = () => {
       const k = b.dataset.seat;
-      answer.seats = answer.seats.includes(k) ? answer.seats.filter((s) => s !== k) : answer.seats.concat(k).sort((a, z) => a - z);
+      answer.seats = answer.seats.includes(k) ? answer.seats.filter((s) => s !== k) : answer.seats.concat(k).sort(bySeat);
       render();
     });
     main.querySelectorAll('[data-reason]').forEach((b) => b.onclick = () => { answer.reason = b.dataset.reason; render(); });
